@@ -8,7 +8,7 @@ import PromptModal from './components/PromptModal';
 import { GenerationMode, GeneratedImage } from './types';
 import { generateImage, describeImage, generateMoodboardPrompts, regenerateSpacePrompts } from './services/geminiService';
 import { fileToBase64, dataUrlToBlobData, getImageDimensions, resizeImageAndCover, dataURLtoFile } from './utils';
-import { ArrowUpIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, ResetViewIcon, Squares2x2Icon, UploadIcon } from './components/IconComponents';
+import { ArrowUpIcon, MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon, ResetViewIcon, Squares2x2Icon, UploadIcon, SlidersIcon, XMarkIcon } from './components/IconComponents';
 
 // Layout constants
 const IMAGE_CARD_WIDTH = 320;
@@ -140,7 +140,15 @@ const App: React.FC = () => {
     const [moodboardError, setMoodboardError] = useState<string | null>(null);
     const [isMoodboardModalOpen, setIsMoodboardModalOpen] = useState(false);
     const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [regeneratingSpace, setRegeneratingSpace] = useState<string | null>(null);
+
+    // Touch interaction state
+    const touchRef = useRef<{
+        lastDist: number | null;
+        lastX: number;
+        lastY: number;
+    }>({ lastDist: null, lastX: 0, lastY: 0 });
 
 
     useEffect(() => {
@@ -290,16 +298,19 @@ const App: React.FC = () => {
         if (!interactionRef.current) return;
         const { type, startX, startY, initialView, initialPositions, draggedIds } = interactionRef.current;
         
+        const clientX = e.clientX;
+        const clientY = e.clientY;
+
         if (type === 'pan') {
-             setView(v => ({...v, x: initialView.x + (e.clientX - startX), y: initialView.y + (e.clientY - startY)}));
+             setView(v => ({...v, x: initialView.x + (clientX - startX), y: initialView.y + (clientY - startY)}));
         } else if (type === 'drag') {
             if (draggedIds) {
                 draggedIds.forEach(id => {
                     document.getElementById(`image-card-${id}`)?.classList.remove('dragging');
                 });
             }
-            const dx = (e.clientX - startX) / view.zoom;
-            const dy = (e.clientY - startY) / view.zoom;
+            const dx = (clientX - startX) / view.zoom;
+            const dy = (clientY - startY) / view.zoom;
             
             setImages(prev => prev.map(img => {
                 if (initialPositions.has(img.id)) {
@@ -316,6 +327,130 @@ const App: React.FC = () => {
         if (workspaceRef.current) workspaceRef.current.classList.remove('cursor-grabbing');
 
     }, [view.zoom, handleGlobalMouseMove]);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            touchRef.current = { lastDist: null, lastX: touch.clientX, lastY: touch.clientY };
+            
+            // Check if touching an image
+            const target = e.target as HTMLElement;
+            const imageCard = target.closest('[data-image-card-id]');
+            
+            if (imageCard) {
+                const id = imageCard.getAttribute('data-image-card-id')!;
+                const isSelected = selectedImageIds.includes(id);
+                const newSelectedIds = isSelected ? selectedImageIds : [id];
+                setSelectedImageIds(newSelectedIds);
+
+                const initialPositions = new Map<string, {x: number; y: number}>();
+                newSelectedIds.forEach(imgId => {
+                    const img = images.find(i => i.id === imgId);
+                    if (img) {
+                        initialPositions.set(imgId, { x: img.x, y: img.y });
+                        document.getElementById(`image-card-${imgId}`)?.classList.add('dragging');
+                    }
+                });
+
+                interactionRef.current = {
+                    type: 'drag',
+                    startX: touch.clientX,
+                    startY: touch.clientY,
+                    initialView: { x: view.x, y: view.y },
+                    initialPositions,
+                    draggedIds: newSelectedIds,
+                };
+            } else {
+                interactionRef.current = {
+                    type: 'pan',
+                    startX: touch.clientX,
+                    startY: touch.clientY,
+                    initialView: { x: view.x, y: view.y },
+                    initialPositions: new Map(),
+                };
+            }
+        } else if (e.touches.length === 2) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            touchRef.current.lastDist = dist;
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (e.touches.length === 1 && interactionRef.current) {
+            const touch = e.touches[0];
+            const { type, startX, startY, initialView, initialPositions } = interactionRef.current;
+
+            if (type === 'pan') {
+                const newX = initialView.x + (touch.clientX - startX);
+                const newY = initialView.y + (touch.clientY - startY);
+                if (pannableContainerRef.current) {
+                    pannableContainerRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${view.zoom})`;
+                }
+            } else if (type === 'drag') {
+                const dx = (touch.clientX - startX) / view.zoom;
+                const dy = (touch.clientY - startY) / view.zoom;
+                initialPositions.forEach((startPos, id) => {
+                    const el = document.getElementById(`image-card-${id}`);
+                    if (el) el.style.transform = `translate(${startPos.x + dx}px, ${startPos.y + dy}px)`;
+                });
+            }
+        } else if (e.touches.length === 2 && touchRef.current.lastDist !== null) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const delta = dist / touchRef.current.lastDist;
+            const newZoom = Math.max(0.1, Math.min(view.zoom * delta, 5));
+            
+            // Zoom towards center of two fingers
+            const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            const rect = workspaceRef.current?.getBoundingClientRect();
+            if (rect) {
+                const mouseX = centerX - rect.left;
+                const mouseY = centerY - rect.top;
+                const mouseXInView = (mouseX - view.x) / view.zoom;
+                const mouseYInView = (mouseY - view.y) / view.zoom;
+                const newX = mouseX - mouseXInView * newZoom;
+                const newY = mouseY - mouseYInView * newZoom;
+
+                if (pannableContainerRef.current) {
+                    pannableContainerRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${newZoom})`;
+                }
+                setView({ x: newX, y: newY, zoom: newZoom });
+            }
+            touchRef.current.lastDist = dist;
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (interactionRef.current) {
+            const { type, startX, startY, initialView, initialPositions, draggedIds } = interactionRef.current;
+            const lastTouch = touchRef.current;
+
+            if (type === 'pan') {
+                setView(v => ({ ...v, x: initialView.x + (lastTouch.lastX - startX), y: initialView.y + (lastTouch.lastY - startY) }));
+            } else if (type === 'drag') {
+                if (draggedIds) {
+                    draggedIds.forEach(id => document.getElementById(`image-card-${id}`)?.classList.remove('dragging'));
+                }
+                const dx = (lastTouch.lastX - startX) / view.zoom;
+                const dy = (lastTouch.lastY - startY) / view.zoom;
+                setImages(prev => prev.map(img => {
+                    if (initialPositions.has(img.id)) {
+                        const startPos = initialPositions.get(img.id)!;
+                        return { ...img, x: startPos.x + dx, y: startPos.y + dy };
+                    }
+                    return img;
+                }));
+            }
+        }
+        interactionRef.current = null;
+        touchRef.current.lastDist = null;
+    };
     
     const handleImageMouseDown = useCallback((id: string, e: React.MouseEvent) => {
         if (e.button !== 0) return; // Only drag with left mouse button
@@ -423,6 +558,7 @@ const App: React.FC = () => {
     };
     
     const handleGenerate = async () => {
+        setIsSidebarOpen(false);
         const imageEditingModes: GenerationMode[] = ['refine', 'camera-angle', 'floor-plan', 'floor-plan-3d'];
         const requiresReference = imageEditingModes.includes(mode);
         const activeImageId = selectedImageIds.length > 0 ? selectedImageIds[selectedImageIds.length - 1] : null;
@@ -768,12 +904,12 @@ const App: React.FC = () => {
     const isGeneratingForSelected = rootImageId ? generatingMoodboardForId === rootImageId : false;
 
     return (
-      <div className="flex h-screen bg-gray-900 text-white font-sans overflow-hidden">
+      <div className="flex flex-col md:flex-row h-screen bg-gray-900 text-white font-sans overflow-hidden">
         <input type="file" ref={fileInputRef} onChange={handleFileUploaded} accept="image/*" className="hidden" />
         
         <div 
             ref={workspaceRef}
-            className="flex-grow flex flex-col relative canvas-grid overflow-hidden cursor-grab"
+            className="flex-grow flex flex-col relative canvas-grid overflow-hidden cursor-grab touch-none"
             onMouseDown={handleWorkspaceMouseDown}
             onWheel={handleWheel}
             onDoubleClick={handleDoubleClick}
@@ -781,13 +917,30 @@ const App: React.FC = () => {
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
         >
+            <div className="absolute bottom-6 right-6 z-20 md:hidden">
+                <button 
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="p-4 bg-viettel-red text-white rounded-full shadow-2xl active:scale-95 transition-transform border-2 border-white/20"
+                    title="Bảng điều khiển"
+                >
+                    {isSidebarOpen ? <XMarkIcon className="w-7 h-7" /> : <SlidersIcon className="w-7 h-7" />}
+                </button>
+            </div>
+
             <TopBar mode={mode} setMode={handleModeChange} />
-            <PromptChatbot 
-                prompt={prompt} 
-                setPrompt={setPrompt}
-                onEdit={() => setIsPromptModalOpen(true)} 
-            />
+            
+            <div className="absolute bottom-6 left-6 z-30 md:top-4 md:right-4 md:bottom-auto md:left-auto">
+                <PromptChatbot 
+                    prompt={prompt} 
+                    setPrompt={setPrompt}
+                    onEdit={() => setIsPromptModalOpen(true)} 
+                />
+            </div>
+
             {images.length > 0 ? (
                  <div 
                     ref={pannableContainerRef}
@@ -808,11 +961,11 @@ const App: React.FC = () => {
                 <div className="w-full h-full flex items-center justify-center p-4 pointer-events-none">
                     <div
                         onClick={handleUploadClick}
-                        className="group w-80 h-80 flex flex-col items-center justify-center text-center text-gray-500 border-4 border-dashed border-gray-700 rounded-2xl cursor-pointer hover:bg-gray-800/50 hover:border-viettel-red transition-all duration-300 pointer-events-auto"
+                        className="group w-64 h-64 md:w-80 md:h-80 flex flex-col items-center justify-center text-center text-gray-500 border-4 border-dashed border-gray-700 rounded-2xl cursor-pointer hover:bg-gray-800/50 hover:border-viettel-red transition-all duration-300 pointer-events-auto"
                     >
-                        <ArrowUpIcon className="w-24 h-24 text-gray-600 transition-transform duration-300 group-hover:scale-110" />
-                        <h2 className="text-2xl font-bold mt-4 text-gray-400">Tải ảnh lên để bắt đầu</h2>
-                        <p className="mt-2 text-sm px-4">Nhấp vào đây, kéo & thả, dán, hoặc nhấp đúp vào nền.</p>
+                        <ArrowUpIcon className="w-16 h-16 md:w-24 md:h-24 text-gray-600 transition-transform duration-300 group-hover:scale-110" />
+                        <h2 className="text-xl md:text-2xl font-bold mt-4 text-gray-400">Tải ảnh lên để bắt đầu</h2>
+                        <p className="mt-2 text-xs md:text-sm px-4">Nhấp vào đây, kéo & thả, dán, hoặc nhấp đúp vào nền.</p>
                     </div>
                 </div>
             )}
@@ -827,7 +980,11 @@ const App: React.FC = () => {
             <CanvasControls/>
         </div>
 
-        <div className="w-[450px] flex-shrink-0 border-l border-gray-700/50 z-10">
+        <div className={`
+            fixed inset-y-0 right-0 z-40 w-full sm:w-[450px] bg-gray-900 border-l border-gray-700/50 transform transition-transform duration-300 ease-in-out
+            md:relative md:inset-auto md:flex md:w-[450px] md:translate-x-0
+            ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+        `}>
           <ControlPanel
               mode={mode} prompt={prompt} setPrompt={setPrompt}
               onGenerate={handleGenerate}
@@ -849,6 +1006,7 @@ const App: React.FC = () => {
               setShowGridAndDimensions={setShowGridAndDimensions}
               isPromptModalOpen={isPromptModalOpen}
               setIsPromptModalOpen={setIsPromptModalOpen}
+              onClose={() => setIsSidebarOpen(false)}
           />
         </div>
         

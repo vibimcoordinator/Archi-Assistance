@@ -329,6 +329,7 @@ interface ControlPanelProps {
     setShowGridAndDimensions?: (value: boolean) => void;
     isPromptModalOpen: boolean;
     setIsPromptModalOpen: (value: boolean) => void;
+    onClose?: () => void;
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = (props) => {
@@ -340,7 +341,8 @@ const ControlPanel: React.FC<ControlPanelProps> = (props) => {
         sourceAspectRatio,
         activeImageAdjustments, onAdjustmentChange, onResetAdjustments,
         showGridAndDimensions, setShowGridAndDimensions,
-        isPromptModalOpen, setIsPromptModalOpen
+        isPromptModalOpen, setIsPromptModalOpen,
+        onClose
      } = props;
      
     const [isAngleDropdownOpen, setAngleDropdownOpen] = useState(false);
@@ -426,8 +428,19 @@ const ControlPanel: React.FC<ControlPanelProps> = (props) => {
     };
 
     return (
-        <div className="bg-gray-800 p-4 shadow-2xl flex flex-col h-full">
-            <h2 className="flex-shrink-0 text-xl font-bold text-white mb-4">Bảng điều khiển</h2>
+        <div className="bg-gray-800 p-4 shadow-2xl flex flex-col h-full relative">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                <h2 className="text-xl font-bold text-white">Bảng điều khiển</h2>
+                {onClose && (
+                    <button 
+                        onClick={onClose}
+                        className="md:hidden p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors"
+                        title="Đóng bảng điều khiển"
+                    >
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                )}
+            </div>
             
             <div className="flex-grow overflow-y-auto -mr-2 pr-2">
                 <div className="space-y-4">

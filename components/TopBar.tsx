@@ -20,8 +20,8 @@ interface TopBarProps {
 
 const TopBar: React.FC<TopBarProps> = ({ mode, setMode }) => {
     return (
-        <div className="absolute top-0 left-0 z-20 p-2">
-            <div className="flex items-center space-x-1 bg-gray-800/80 backdrop-blur-sm p-1 rounded-xl shadow-lg">
+        <div className="absolute top-0 left-0 right-0 md:right-auto z-20 p-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center space-x-1 bg-gray-800/80 backdrop-blur-sm p-1 rounded-xl shadow-lg min-w-max">
                 {modes.map((m) => (
                     <button
                         key={m.id}

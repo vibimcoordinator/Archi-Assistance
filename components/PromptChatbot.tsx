@@ -31,7 +31,7 @@ const PromptChatbot: React.FC<PromptChatbotProps> = ({ prompt, setPrompt, onEdit
         return (
             <button 
                 onClick={() => setIsCollapsed(false)}
-                className="absolute top-4 right-4 z-20 p-3 bg-viettel-red rounded-full shadow-lg hover:bg-viettel-red-dark transition-all duration-300 animate-bounce group"
+                className="p-3 bg-viettel-red rounded-full shadow-lg hover:bg-viettel-red-dark transition-all duration-300 animate-bounce group"
                 title="Mở AI Prompt"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 text-white">
@@ -45,7 +45,7 @@ const PromptChatbot: React.FC<PromptChatbotProps> = ({ prompt, setPrompt, onEdit
     }
 
     return (
-        <div className="absolute top-4 right-4 z-20 w-80 bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-700/50 p-4 transition-all duration-300">
+        <div className="w-[calc(100vw-3rem)] sm:w-80 bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-700/50 p-4 transition-all duration-300">
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
                     <div className="p-1.5 bg-viettel-red/20 rounded-lg">
