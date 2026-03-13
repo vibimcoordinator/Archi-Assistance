@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --color-viettel-red: #EE0033;
+  --color-viettel-red-dark: #C4002A;
+  --color-viettel-red-light: #FF335C;
+  --color-viettel-orange: #FFB800;
+  
+  /* Override indigo with Viettel Red for consistency if needed, 
+     but it's better to explicitly use viettel-red in components */
+}
+
+@layer base {
+  body {
+    @apply bg-gray-900 text-white;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+@layer utilities {
+  .image-comparison-slider {
+    --position: 50%;
+  }
+  .image-comparison-slider .before-image {
+    clip-path: inset(0 calc(100% - var(--position)) 0 0);
+  }
+  .image-comparison-slider .slider-handle {
+    left: var(--position);
+  }
+  /* New styles for interactive canvas */
+  .canvas-grid {
+    background-color: #111827; /* gray-900 */
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 2rem 2rem;
+  }
+  .cursor-grab { cursor: grab; }
+  .cursor-grabbing { cursor: grabbing; }
+  .touch-none { touch-action: none; }
+  .dragging {
+    transition-property: none !important;
+    cursor: grabbing !important;
+  }
+}
